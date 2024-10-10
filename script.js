@@ -382,7 +382,7 @@ showRadiusButton.addEventListener('mousedown', () => {
 }
 
   const radius = calculateRadius();  
-  radiusHintBox.textContent = `Radius: ${radius.toPrecision(2)}`; 
+  radiusHintBox.textContent = `Radius: ${radius.toPrecision(2)} m`; 
   radiusHintBox.style.display = 'block';  
 });  
   
