@@ -118,7 +118,7 @@ body {
 
 #clear-button{
   padding: 5px 10px;  
-  border: none;  
+  border: 1 px solid black;  
   border-radius: 5px;  
   cursor: pointer;  
   margin: 10px;
@@ -129,7 +129,7 @@ body {
 
 #add-particle{
   padding: 5px 10px;  
-  border: none;  
+border: 1 px solid black; 
   border-radius: 5px;  
   cursor: pointer;  
   margin: 10px;
