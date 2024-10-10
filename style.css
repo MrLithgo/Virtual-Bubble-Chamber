@@ -45,7 +45,7 @@ body {
   
 #controls label {  
   display: block;  
-  margin-bottom: 10px;  
+  margin-bottom: 5px;  
 }  
 
 #preset-select {  
@@ -54,7 +54,7 @@ body {
   padding: 5px;  
   border: 1px solid #ccc;  
   border-radius: 5px;  
-  margin-bottom: 10px;  
+  margin-bottom: 5px;  
 }
 
   
