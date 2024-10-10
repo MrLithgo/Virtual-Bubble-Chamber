@@ -71,8 +71,20 @@ const particlePresets = {
     magneticScaleFactor: 3
   }  
 };  
-  
-// Update input fields with preset values  
+window.addEventListener('resize', () => {  
+  const screenWidth = window.innerWidth;  
+  const controlsWidth = controls.offsetWidth;  
+  const canvasWidth = Math.min(800,screenWidth - controlsWidth - 200);
+   particles = [];  
+  trail = [];  
+  canvas.style.width = `${canvasWidth}px`;  
+   ctx.setTransform(canvasWidth / 800, 0, 0, 1, 0, 0);
+});
+
+
+
+
+ 
 function updateInputFields(preset) {  
   const chargeInput = document.getElementById('charge');  
   const massInput = document.getElementById('mass');  
@@ -82,7 +94,7 @@ function updateInputFields(preset) {
   massInput.value = particlePresets[preset].mass;  
 }  
   
-// Add event listener to preset button group  
+
 const presetButtons = document.querySelectorAll('.preset-button');  
 presetButtons.forEach((button) => {  
   button.addEventListener('click', () => {  
@@ -155,12 +167,7 @@ class Particle {
    ctx.arc(this.x, this.y, 2, 0, 2 * Math.PI);  
    ctx.fillStyle = 'black';  
    ctx.fill();  
-   //for (let i = 0; i < this.trails.length; i++) {  
-   // ctx.beginPath();  
-   // ctx.arc(this.trails[i][0], this.trails[i][1], 2, 0, 2 * Math.PI);  
-   // ctx.fillStyle = 'rgba(0, 0, 0, ' + (i / this.trails.length) + ')';  
-   // ctx.fill();  
-   //}  
+    
   }  
 }  
 
@@ -188,8 +195,7 @@ function createPhoton() {
   photons.push(photon);  
 }  
   
-//createPhoton();  
-//animatePhoton();
+
 
 let animatingPhoton = false;  
 
