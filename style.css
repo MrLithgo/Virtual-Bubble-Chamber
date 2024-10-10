@@ -116,7 +116,24 @@ body {
   margin-left: 20px;  
 }
 
-.button-group {  
-  margin-bottom: 40px;  
-  margin-top: 20px;
+#clear-button{
+  padding: 5px 10px;  
+  border: none;  
+  border-radius: 5px;  
+  cursor: pointer;  
+  margin: 10px;
+  border: 1px solid #ccc;  
+  border-radius: 5px;  
+  
+}
+
+#add-particle{
+  padding: 5px 10px;  
+  border: none;  
+  border-radius: 5px;  
+  cursor: pointer;  
+  margin: 10px;
+  border: 1px solid #ccc;  
+  border-radius: 5px;  
+  
 }
