@@ -54,7 +54,7 @@ body {
   padding: 5px;  
   border: 1px solid #ccc;  
   border-radius: 5px;  
-  margin-bottom: 5px;  
+  margin-bottom: 10px;  
 }
 
   
@@ -73,6 +73,7 @@ body {
   cursor: pointer;  
   background-color: #f0f0f0;  
   color: black;  
+  margin-top: 10px;
 }  
   
 #toggle-magnetic-field:hover {  
