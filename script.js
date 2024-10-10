@@ -78,9 +78,10 @@ const particlePresets = {
     const canvasHeight = 0.75*canvasWidth;
    particles = [];  
   trail = [];  
- canvas.setAttribute('width', canvasWidth);  
-canvas.setAttribute('height', canvasHeight);
-   //ctx.setTransform(canvasWidth / 800, 0, 0, 1, 0, 0);
+ canvas.style.width = `${canvasWidth}px`;  
+canvas.style.height = `${canvasHeight}px`;  
+
+   ctx.setTransform(canvasWidth / 800, 0, 0, canvasHeight/600, 0, 0);
 });
 
 
