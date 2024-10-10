@@ -30,7 +30,15 @@ body {
   float: left;  
   margin-top: 100px;  
 }  
-  
+@media (max-width: 768px) {  
+  #controls {  
+   float: none;  
+   width: 100%;  
+   margin-top: 20px;  
+  }  
+}
+
+
 #controls {  
   width:250px;
   position: relative;
