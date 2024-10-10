@@ -123,8 +123,7 @@ body {
   border-radius: 5px;  
   cursor: pointer;  
   margin: 10px;
-  border: 1px solid #ccc;  
-  border-radius: 5px;  
+  
   
 }
 
@@ -134,7 +133,14 @@ border: 1 px solid black;
   border-radius: 5px;  
   cursor: pointer;  
   margin: 10px;
+  
+  
+}
+
+#show-radius-button {  
+  padding: 5px 10px;  
   border: 1px solid #ccc;  
   border-radius: 5px;  
-  
+  cursor: pointer;  
+  margin: 10px;  
 }
