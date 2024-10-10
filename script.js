@@ -372,7 +372,15 @@ animate();
 
 const showRadiusButton = document.getElementById('show-radius-button');  
 const radiusHintBox = document.getElementById('radius-hint-box');  
+  showRadiusButton.addEventListener('touchstart', () => {  
+  const radius = calculateRadius();  
+  radiusHintBox.textContent = `Radius: ${radius}`;  
+  radiusHintBox.style.display = 'block';  
+});  
   
+showRadiusButton.addEventListener('touchend', () => {  
+  radiusHintBox.style.display = 'none';  
+});  
 
 showRadiusButton.addEventListener('mousedown', () => {  
   if (magneticField) {  
