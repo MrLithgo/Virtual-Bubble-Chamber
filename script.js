@@ -75,9 +75,11 @@ window.addEventListener('resize', () => {
   const screenWidth = window.innerWidth;  
   const controlsWidth = controls.offsetWidth;  
   const canvasWidth = Math.min(800,screenWidth - controlsWidth - 100);
+   const canvasHeight = canvasWidth * 0.75; 
    particles = [];  
   trail = [];  
   canvas.style.width = `${canvasWidth}px`;  
+  canvas.style.height = `${canvasHeight}px`;
    ctx.setTransform(canvasWidth / 800, 0, 0, 1, 0, 0);
 });
 
