@@ -192,7 +192,7 @@ function drawPhoton(x, y, energy) {
 function createPhoton() {  
   const photon = {  
    x: 0,  
-   y: canvas.height / scaleFactor*2,  
+   y: 300/scaleFactor,  
    energy: particlePresets.photon.energy,
   };  
   photons.push(photon);  
@@ -222,7 +222,7 @@ document.getElementById('add-particle').addEventListener('click', () => {
    const velocityMagnitude = Math.sqrt(velocityPreset * 2 * energy / mass);  
    const energyLossRate = particlePresets[preset].energyLossRate;  
     const magneticScaleFactor = particlePresets[preset].magneticScaleFactor;  
-   particles.push(new Particle(canvas.width /scaleFactor*10, canvas.height / scaleFactor*2, charge, mass, velocityPreset, energy, energyLossRate, magneticScaleFactor));  
+   particles.push(new Particle(80/scaleFactor, 300/scaleFactor, charge, mass, velocityPreset, energy, energyLossRate, magneticScaleFactor));  
     lastParticleInitialValues = {  
     mass: mass,  
     energy: energy,  
@@ -235,7 +235,7 @@ document.getElementById('add-particle').addEventListener('click', () => {
    const energy = parseFloat(document.getElementById('energy').value);  
    const velocityPreset = particle.velocityPreset;  
    const velocityMagnitude = Math.sqrt(particle.velocityPreset * 2 * particle.energy / particle.mass);  
-   particles.push(new Particle(canvas.width / scaleFactor*10, canvas.height / scaleFactor*2, particle.charge, particle.mass, Math.abs(velocityPreset), energy, particle.energyLossRate, particle.magneticScaleFactor));  lastParticleInitialValues = {  
+   particles.push(new Particle(80/scaleFactor, 300/scaleFactor, particle.charge, particle.mass, Math.abs(velocityPreset), energy, particle.energyLossRate, particle.magneticScaleFactor));  lastParticleInitialValues = {  
     mass: particle.mass,  
     energy: particle.energy,  
     charge: particle.charge,  
