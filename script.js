@@ -1,13 +1,29 @@
 const canvas = document.getElementById('canvas');  
 const ctx = canvas.getContext('2d');  
-let particles = [];  
+let particles = []; 
 let trail = [];  
 let magneticField = false;  
 const massInput = document.getElementById('mass');  
 let magneticFieldStrength = 0.5;  
 let magneticScaleFactor = 2;  
 const velocityScale = 1;  
+let scaleFactor = canvas.width / 800;
 //let energy = 1;  
+
+  window.addEventListener('resize', () => {  
+  const screenWidth = window.innerWidth;  
+  const controlsWidth = controls.offsetWidth;  
+  const canvasWidth = Math.min(800,screenWidth - controlsWidth - 75);
+    const canvasHeight = 0.75*canvasWidth;
+    scaleFactor = canvasWidth / 800;
+   particles = [];  
+  trail = [];  
+    canvas.style.width = `${canvasWidth}px`;  
+canvas.style.height = `${canvasHeight}px`;  
+ //canvas.setAttribute('width', canvasWidth);  
+//canvas.setAttribute('height', canvasHeight);
+   ctx.setTransform(canvasWidth / 800, 0, 0, canvasHeight/600, 0, 0);
+});
   
 const magneticFieldStrengthInput = document.getElementById('magnetic-field-strength');  
   
@@ -71,23 +87,8 @@ const particlePresets = {
     magneticScaleFactor: 3
   }  
 };  
- window.addEventListener('resize', () => {  
-  const screenWidth = window.innerWidth;  
-  const controlsWidth = controls.offsetWidth;  
-  const canvasWidth = Math.min(800,screenWidth - controlsWidth - 75);
-    const canvasHeight = 0.75*canvasWidth;
-   particles = [];  
-  trail = [];  
- canvas.style.width = `${canvasWidth}px`;  
-canvas.style.height = `${canvasHeight}px`;  
-
-   ctx.setTransform(canvasWidth / 800, 0, 0, canvasHeight/600, 0, 0);
-});
-
-
-
-
- 
+  
+// Update input fields with preset values  
 function updateInputFields(preset) {  
   const chargeInput = document.getElementById('charge');  
   const massInput = document.getElementById('mass');  
@@ -97,7 +98,7 @@ function updateInputFields(preset) {
   massInput.value = particlePresets[preset].mass;  
 }  
   
-
+// Add event listener to preset button group  
 const presetButtons = document.querySelectorAll('.preset-button');  
 presetButtons.forEach((button) => {  
   button.addEventListener('click', () => {  
@@ -167,10 +168,15 @@ class Particle {
   
   draw() {  
    ctx.beginPath();  
-   ctx.arc(this.x, this.y, 2, 0, 2 * Math.PI);  
+   ctx.arc(this.x, this.y, 2 * scaleFactor, 0, 2 * Math.PI);  
    ctx.fillStyle = 'black';  
    ctx.fill();  
-    
+   //for (let i = 0; i < this.trails.length; i++) {  
+   // ctx.beginPath();  
+   // ctx.arc(this.trails[i][0], this.trails[i][1], 2, 0, 2 * Math.PI);  
+   // ctx.fillStyle = 'rgba(0, 0, 0, ' + (i / this.trails.length) + ')';  
+   // ctx.fill();  
+   //}  
   }  
 }  
 
@@ -198,7 +204,8 @@ function createPhoton() {
   photons.push(photon);  
 }  
   
-
+//createPhoton();  
+//animatePhoton();
 
 let animatingPhoton = false;  
 
@@ -223,6 +230,9 @@ document.getElementById('add-particle').addEventListener('click', () => {
    const energyLossRate = particlePresets[preset].energyLossRate;  
     const magneticScaleFactor = particlePresets[preset].magneticScaleFactor;  
    particles.push(new Particle(80/scaleFactor, 300/scaleFactor, charge, mass, velocityPreset, energy, energyLossRate, magneticScaleFactor));  
+    console.log("scalefactor:", scaleFactor);
+    console.log("particle", particles);
+    console.log("height",canvas.height);
     lastParticleInitialValues = {  
     mass: mass,  
     energy: energy,  
@@ -381,15 +391,7 @@ animate();
 
 const showRadiusButton = document.getElementById('show-radius-button');  
 const radiusHintBox = document.getElementById('radius-hint-box');  
-  showRadiusButton.addEventListener('touchstart', () => {  
-  const radius = calculateRadius();  
-  radiusHintBox.textContent = `Radius: ${radius}`;  
-  radiusHintBox.style.display = 'block';  
-});  
   
-showRadiusButton.addEventListener('touchend', () => {  
-  radiusHintBox.style.display = 'none';  
-});  
 
 showRadiusButton.addEventListener('mousedown', () => {  
   if (magneticField) {  
@@ -402,7 +404,18 @@ showRadiusButton.addEventListener('mousedown', () => {
   radiusHintBox.textContent = `Radius: ${radius.toPrecision(2)} m`; 
   radiusHintBox.style.display = 'block';  
 });  
+
+
+showRadiusButton.addEventListener('touchstart', () => {  
+  const radius = calculateRadius();  
+  radiusHintBox.textContent = `Radius: ${radius}`;  
+  radiusHintBox.style.display = 'block';  
+});  
   
+showRadiusButton.addEventListener('touchend', () => {  
+  radiusHintBox.style.display = 'none';  
+});  
+
 showRadiusButton.addEventListener('mouseup', () => {  
   radiusHintBox.style.display = 'none';  
 });  
@@ -425,3 +438,4 @@ function calculateRadius() {
    return 0;  
   }  
 }
+
