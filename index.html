@@ -1,53 +1,86 @@
 <!DOCTYPE html>
-<html lang="en" >
+<html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <title>VirtualBubbleChamber</title>
-  <link rel="stylesheet" href="./style.css">
-
+  <meta charset="UTF-8" />
+  <title>Virtual Bubble Chamber</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
 </head>
- 
-<body>   
-  <canvas id="canvas" width="800" height="600"></canvas>   
-  <h1 id="title">Virtual Bubble Chamber</h1>  
-   
-  <div id="controls">   
-    <label for="preset-select">Preset:</label>  
-<select id="preset-select">   
-  <option value="none">none</option>   
-  <option value="proton">proton</option>   
-  <option value="electron">electron</option>   
-  <option value="positron">positron</option>   
-  <option value="neutron">neutron</option>   
-    
-  <option value="photon">photon</option> 
- 
-  <option value="alphaParticle">alpha particle</option>   
-</select>  
-  
-   <label for="charge">Relative Charge:</label>   
-   <input type="number" id="charge" step="1" value="1">   
-   <label for="mass">Relative Mass:</label>   
-  <input id="mass" type="number" min="0" step="1" value="1">    
-   <label for="energy">Energy(MeV):</label>   
-   <input type="number" id="energy" min ="0" step="0.01" value="0.50">  
-    
-   <label for="magnetic-field-strength">Magnetic Field(T):</label>   
-  <input id="magnetic-field-strength" type="number"  step="0.1" value="0.5">  
-   <div class="button-group">  
-   <button id="toggle-magnetic-field">Toggle Magnetic Field</button>  
-  <div> <button id="add-particle">Add Particle</button> </div> 
-   <div><button id="clear-button">Clear chamber</button>  </div>
-  </div>  
-  <button id="show-radius-button" style="display: none;">Show Initial Radius</button>  
-  <div id="radius-hint-box" style="display: none;"></div>  
-    
-<div id="hint-box" class="hint-box" style="display: none;">What must the minimum energy of the photon be in order to produce an electron-positron pair?</div>
-  </div>   
-   
 
-  <script src="script.js"></script>   
-</body>   
+<body>
+  <div class="container">
+    <header class="page-header">
+      <h1 id="title">Virtual Bubble Chamber</h1>
+      <p class="instructions">Add particles, toggle the magnetic field, and observe tracks. Use presets for quick setup.</p>
+    </header>
+
+    <main class="layout">
+      <section class="simulation-area">
+        <div class="canvas-wrap">
+          <canvas id="canvas" width="800" height="600" role="img" aria-label="Virtual bubble chamber canvas"></canvas>
+        </div>
+
+        <div class="hint-row">
+          <div id="hint-box" class="hint hidden" aria-hidden="true">
+            What must the minimum energy of the photon be in order to produce an electron-positron pair?
+          </div>
+
+          <div class="balance-status-wrapper">
+            <div id="balanceStatus" class="balance-status" aria-live="polite"></div>
+          </div>
+      </section>
+
+      <aside id="controls" class="controls" aria-labelledby="controls-heading">
+        <h2 id="controls-heading" class="sr-only">Simulation controls</h2>
+
+        <label for="preset-select">Preset</label>
+        <select id="preset-select" class="control-input">
+          <option value="none">none</option>
+          <option value="proton">proton</option>
+          <option value="electron">electron</option>
+          <option value="positron">positron</option>
+          <option value="neutron">neutron</option>
+          <option value="photon">photon</option>
+          <option value="alphaParticle">alpha particle</option>
+        </select>
+
+        <label for="charge">Relative charge</label>
+        <input type="number" id="charge" step="1" value="1" class="control-input" />
+
+        <label for="mass">Relative mass</label>
+        <input id="mass" type="number" min="0" step="1" value="1" class="control-input" />
+
+        <label for="energy">Energy (MeV)</label>
+        <input type="number" id="energy" min="0" step="0.01" value="0.50" class="control-input" />
+
+        <label for="magnetic-field-strength">Magnetic field (T)</label>
+        <input id="magnetic-field-strength" type="number" step="0.1" value="0.5" class="control-input" />
+
+        <div class="controls controls--wide-gap">
+
+          <button id="clear-button" class="btn coral-btn">Clear chamber</button>
+        </div>
+
+        <div class="button-group">
+          <button id="toggle-magnetic-field" class="btn teal-btn">Toggle magnetic field</button>
+          <button id="add-particle" class="btn gold-btn">Add particle</button>
+          <div class="radius-input-wrap">
+            <label for="radius-input" class="radius-label">Your calculated radius (m)</label>
+            <div class="radius-row">
+              <input id="radius-input" type="number" step="any" inputmode="decimal" placeholder="e.g. 0.12" aria-describedby="radius-feedback" />
+              <button id="check-radius-button" class="btn">Check</button>
+            </div>
+            <div id="radius-feedback" class="radius-feedback" role="status" aria-live="polite"></div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+  </div>
+
+  <script src="./script.js"></script>
+</body>
+
 </html>
-
- 
