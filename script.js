@@ -1,9 +1,4 @@
-/* Final consolidated script.js (patched to use explicit logical coords)
-   - logical drawing space constants (LOGICAL_W x LOGICAL_H)
-   - spawns, bounds, photon checks updated to use LOGICAL_* constants
-   - DPR-aware resize mapping uses LOGICAL_* values
-   - Otherwise behavior preserved
-*/
+
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -24,13 +19,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const massInput = document.getElementById('mass');
 
   // ---------- Logical drawing area ----------
-  // Use a fixed logical coordinate system for the simulation (independent of CSS size)
   const LOGICAL_W = 800;
   const LOGICAL_H = 600;
 
-  // spawn coordinates (keeps the same feel as your original spawn at x=80, y=300)
+  // spawn coordinates (keeps same feel as original)
   const SPAWN_X = LOGICAL_W * 0.1; // 80
   const SPAWN_Y = LOGICAL_H * 0.5; // 300
+  const PRESET_E_PAIR_OFFSET_X = 100;
 
   // ---------- State ----------
   let particles = [];
@@ -39,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let magneticField = false;
   let magneticFieldStrength = parseFloat(magneticFieldStrengthInput?.value || '0.5') || 0.5;
   let scaleFactor = 1; // computed from CSS width / LOGICAL_W
+  let lastParticleInitialValues = null; // used by radius check
 
   // ---------- Presets ----------
   const particlePresets = {
@@ -51,68 +47,57 @@ document.addEventListener('DOMContentLoaded', () => {
     none: { charge: 1, mass: 1, velocityPreset: 40, energy: 0.5, energyLossRate: 0.002, magneticScaleFactor: 3 }
   };
 
-  let lastParticleInitialValues = null; // used by radius check
-
   // ---------- Resize / DPR handling ----------
   const LAYOUT_BREAKPOINT_PX = 980;
   const CANVAS_MAX_W = 900;
   const CANVAS_MIN_W = 300;
-  const ASPECT = LOGICAL_W / LOGICAL_H; // keep logical aspect
+  const ASPECT = LOGICAL_W / LOGICAL_H;
 
-  // ===== Replace your resizeCanvasToFit() with this version =====
-function resizeCanvasToFit() {
-  // prefer the explicit wrapper if present (your .canvas-wrap)
-  const wrap = document.querySelector('.canvas-wrap');
-  const container = wrap || document.querySelector('.simulation-area') || document.body;
+  function resizeCanvasToFit() {
+    const wrap = document.querySelector('.canvas-wrap');
+    const container = wrap || document.querySelector('.simulation-area') || document.body;
 
-  // Use the wrapper's *inner* size so borders/padding don't distort mapping
-  const cssWidth = Math.max(1, Math.round((wrap ? wrap.clientWidth : container.clientWidth)));
-  const cssHeight = Math.max(1, Math.round((wrap ? wrap.clientHeight : container.clientHeight)));
+    const cssWidth = Math.max(1, Math.round((wrap ? wrap.clientWidth : container.clientWidth)));
+    const cssHeight = Math.max(1, Math.round((wrap ? wrap.clientHeight : container.clientHeight)));
 
-  // enforce logical aspect only when computing CSS dimensions:
-  // we keep the wrapper-provided square size if using .canvas-wrap; otherwise
-  // we compute height from logical aspect ratio to avoid accidental distortion.
-  // (If you always use .canvas-wrap as a square, this simply uses that square.)
-  let finalCssWidth = cssWidth;
-  let finalCssHeight = cssHeight;
+    // if using a square .canvas-wrap you probably want to use its size directly.
+    let finalCssWidth = cssWidth;
+    let finalCssHeight = cssHeight;
 
-  // If the container is not square, preserve logical aspect (optional)
-  const desiredAspect = LOGICAL_W / LOGICAL_H;
-  if (!wrap) {
-    // compute CSS height from width to preserve aspect
-    finalCssHeight = Math.round(finalCssWidth / desiredAspect);
+    // If no wrap, preserve logical aspect using width
+    if (!wrap) {
+      finalCssHeight = Math.round(finalCssWidth / ASPECT);
+    }
+
+    // Apply CSS size (visual)
+    canvas.style.width = `${finalCssWidth}px`;
+    canvas.style.height = `${finalCssHeight}px`;
+
+    // DPR-aware bitmap sizing
+    const dpr = window.devicePixelRatio || 1;
+    const bitmapW = Math.max(1, Math.round(finalCssWidth * dpr));
+    const bitmapH = Math.max(1, Math.round(finalCssHeight * dpr));
+
+    if (canvas.width !== bitmapW || canvas.height !== bitmapH) {
+      canvas.width = bitmapW;
+      canvas.height = bitmapH;
+    }
+
+    // Compute uniform scale and offsets to preserve circles (no stretching)
+    const scaleX = bitmapW / LOGICAL_W;
+    const scaleY = bitmapH / LOGICAL_H;
+    const scale = Math.min(scaleX, scaleY);
+
+    const offsetX = Math.round((bitmapW - LOGICAL_W * scale) / 2);
+    const offsetY = Math.round((bitmapH - LOGICAL_H * scale) / 2);
+
+    // Map logical coords to bitmap
+    ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
+
+    // expose scaleFactor for drawing sizes (CSS px per logical unit)
+    window.scaleFactor = scale / dpr;
+    scaleFactor = window.scaleFactor;
   }
-
-  // Apply CSS size (visual)
-  canvas.style.width = `${finalCssWidth}px`;
-  canvas.style.height = `${finalCssHeight}px`;
-
-  // DPR-aware bitmap sizing
-  const dpr = window.devicePixelRatio || 1;
-  const bitmapW = Math.max(1, Math.round(finalCssWidth * dpr));
-  const bitmapH = Math.max(1, Math.round(finalCssHeight * dpr));
-
-  // Only update bitmap if changed (avoid needless clears)
-  if (canvas.width !== bitmapW || canvas.height !== bitmapH) {
-    canvas.width = bitmapW;
-    canvas.height = bitmapH;
-  }
-
-  // Compute uniform scale (bitmap pixels per logical unit) and center offsets
-  const scaleX = bitmapW / LOGICAL_W;
-  const scaleY = bitmapH / LOGICAL_H;
-  const scale = Math.min(scaleX, scaleY); // uniform to preserve circles
-
-  const offsetX = Math.round((bitmapW - LOGICAL_W * scale) / 2);
-  const offsetY = Math.round((bitmapH - LOGICAL_H * scale) / 2);
-
-  // Map logical coordinates (LOGICAL_W x LOGICAL_H) to bitmap with uniform scale + centering
-  ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
-
-  // Update the drawing scaleFactor used by drawing code (CSS px per logical unit)
-  // scale is bitmap px / logical unit; divide by dpr to get CSS px / logical unit
-  window.scaleFactor = scale / dpr;
-}
 
   // wire resize
   window.removeEventListener('resize', window._bubbleResizeHandler);
@@ -124,6 +109,32 @@ function resizeCanvasToFit() {
   function safeNum(v, fallback = 0) {
     const n = Number(v);
     return Number.isFinite(n) ? n : fallback;
+  }
+
+  // ---------- updateInputFieldsFromPreset (kept) ----------
+  function updateInputFieldsFromPreset(presetKey) {
+    const preset = particlePresets[presetKey];
+    if (!preset) return;
+
+    const chargeEl = document.getElementById('charge');
+    const massEl = document.getElementById('mass');
+    const energyEl = document.getElementById('energy');
+
+    if (!chargeEl || !massEl || !energyEl) return;
+
+    // Set input values
+    chargeEl.value = preset.charge;
+    massEl.value = preset.mass;
+    energyEl.value = preset.energy;
+
+    // Update lastParticleInitialValues so radius calculation sees latest values
+    lastParticleInitialValues = { charge: Number(chargeEl.value), mass: Number(massEl.value), energy: Number(energyEl.value) };
+
+    // Recalculate radius immediately if magnetic field is on
+    if (magneticField && radiusInput) {
+      const r = calculateRadius();
+      
+    }
   }
 
   // ---------- Particle class with Part 2 update() ----------
@@ -144,24 +155,20 @@ function resizeCanvasToFit() {
     }
 
     update() {
-      // guards
       if (!isFinite(this.x) || !isFinite(this.y) || !isFinite(this.mass) || !isFinite(this.energy)) {
         this._dead = true;
         return;
       }
 
-      // move
       this.x += this.velocity[0];
       this.y += this.velocity[1];
 
-      // energy decay
       this.energy -= this.energyLossRate;
 
-      // dead/fade when energy depleted
       if (!isFinite(this.energy) || this.energy <= 0) {
         this.energy = 0;
         this._dead = true;
-        this._fade = this._fade || 12; // 12-frame fade-out
+        this._fade = this._fade || 12;
         return;
       }
 
@@ -181,8 +188,8 @@ function resizeCanvasToFit() {
     }
 
     draw() {
-      // draw in logical coords; radius scaled by scaleFactor so it looks similar across sizes
       ctx.beginPath();
+      // scaleFactor should be available from resize handler
       ctx.arc(this.x, this.y, 2 * Math.max(scaleFactor, 1), 0, Math.PI * 2);
       ctx.fillStyle = 'black';
       ctx.fill();
@@ -204,149 +211,6 @@ function resizeCanvasToFit() {
     photons.push({ x: 0, y: SPAWN_Y, energy: particlePresets.photon.energy });
   }
 
-  // ---------- UI wiring (add-particle, preset select) ----------
-  document.getElementById('add-particle')?.addEventListener('click', () => {
-    const preset = document.getElementById('preset-select')?.value || 'none';
-    if (preset === 'photon') {
-      createPhoton();
-      const energyInputEl = document.getElementById('energy');
-      photons[photons.length - 1].energy = safeNum(energyInputEl?.value, particlePresets.photon.energy);
-      return;
-    }
-
-    if (preset === 'none') {
-      const charge = safeNum(document.getElementById('charge')?.value, 1);
-      const mass = safeNum(document.getElementById('mass')?.value, 1);
-      const energy = safeNum(document.getElementById('energy')?.value, 0.5);
-      const cfg = particlePresets.none;
-      particles.push(new Particle(SPAWN_X, SPAWN_Y, charge, mass, cfg.velocityPreset, energy, cfg.energyLossRate, cfg.magneticScaleFactor));
-      lastParticleInitialValues = { mass, energy, charge };
-      return;
-    }
-
-    const cfg = particlePresets[preset];
-    const energyVal = safeNum(document.getElementById('energy')?.value, cfg.energy);
-    particles.push(new Particle(SPAWN_X, SPAWN_Y, cfg.charge, cfg.mass, Math.abs(cfg.velocityPreset), energyVal, cfg.energyLossRate, cfg.magneticScaleFactor));
-    lastParticleInitialValues = { mass: cfg.mass, energy: cfg.energy, charge: cfg.charge };
-  });
-
-  // preset select behaviour (photon hint)
-  presetSelect?.addEventListener('change', () => {
-    const preset = presetSelect.value;
-    if (preset === 'photon') document.getElementById('hint-box')?.classList.remove('hidden');
-    else document.getElementById('hint-box')?.classList.add('hidden');
-
-    // also update input boxes to show preset values (simple re-addition)
-    const chargeEl = document.getElementById('charge');
-    const massEl = document.getElementById('mass');
-    const energyEl = document.getElementById('energy');
-    if (particlePresets[preset] && chargeEl && massEl && energyEl) {
-      chargeEl.value = particlePresets[preset].charge;
-      massEl.value = particlePresets[preset].mass;
-      energyEl.value = particlePresets[preset].energy;
-      const isCustom = preset === 'none';
-      chargeEl.disabled = !isCustom;
-      massEl.disabled = !isCustom;
-      chargeEl.style.color = isCustom ? 'black' : 'grey';
-      massEl.style.color = isCustom ? 'black' : 'grey';
-    }
-  });
-
-  // clear button
-  document.getElementById('clear-button')?.addEventListener('click', () => {
-    particles = []; trail = []; photons = [];
-    radiusInput?.classList.remove('correct', 'incorrect');
-    if (radiusFeedback) radiusFeedback.textContent = '';
-    // clear spawn state as well
-    lastParticleInitialValues = null;
-  });
-
- // Ensure we have a reference
-
-
-// If the HTML doesn't include the inner .toggle-track/.toggle-thumb, create them
-if (magneticFieldButton && !magneticFieldButton.querySelector('.toggle-track')) {
-  // keep original text as label (wrap it)
-  const currentText = magneticFieldButton.textContent || 'Magnetic Field';
-  magneticFieldButton.textContent = ''; // clear
-  const label = document.createElement('span');
-  label.className = 'toggle-label';
-  label.textContent = currentText;
-  const track = document.createElement('span');
-  track.className = 'toggle-track';
-  const thumb = document.createElement('span');
-  thumb.className = 'toggle-thumb';
-  thumb.setAttribute('aria-hidden', 'true');
-  track.appendChild(thumb);
-  magneticFieldButton.appendChild(label);
-  magneticFieldButton.appendChild(track);
-  magneticFieldButton.setAttribute('aria-pressed', 'false');
-  magneticFieldButton.setAttribute('type','button');
-}
-
-// initialize appearance from current state
-function updateMagneticToggleVisual(isOn) {
-  if (!magneticFieldButton) return;
-  if (isOn) {
-    magneticFieldButton.classList.add('on');
-    magneticFieldButton.setAttribute('aria-pressed', 'true');
-    magneticFieldButton.querySelector('.toggle-label').textContent = 'Magnetic Field On';
-  } else {
-    magneticFieldButton.classList.remove('on');
-    magneticFieldButton.setAttribute('aria-pressed', 'false');
-    magneticFieldButton.querySelector('.toggle-label').textContent = 'Magnetic Field Off';
-  }
-}
-
-// wire click (preserves your magneticField variable toggle)
-if (magneticFieldButton) {
-  // set initial text/state
-  updateMagneticToggleVisual(!!magneticField);
-
-  magneticFieldButton.addEventListener('click', (e) => {
-    e.preventDefault();
-    // toggle logic (this is your app-level state)
-    magneticField = !magneticField;
-
-    // visual update
-    updateMagneticToggleVisual(magneticField);
-
-    // existing side effects you may want to keep:
-    if (magneticField) {
-      // e.g. show radius input or other UI changes
-      document.getElementById('show-radius-button')?.classList.remove('hidden');
-    } else {
-      document.getElementById('show-radius-button')?.classList.add('hidden');
-      // ensure the hint UI is hidden when off
-      document.getElementById('radius-hint-box')?.classList.add('hidden');
-    }
-
-    // optional: preserve the numeric color changes you had
-    if (magneticField) {
-      magneticFieldButton.style.color = '--navy';
-    } else {
-      magneticFieldButton.style.color = '';
-    }
-
-    // if you previously also changed the button text elsewhere, this visual handler already
-    // sets readable text via the label; remove other code that overwrote text to avoid conflicts.
-  });
-
-  // keyboard toggle with Space/Enter already handled by <button>, but we still add keydown for completeness
-  magneticFieldButton.addEventListener('keydown', (ev) => {
-    if (ev.key === ' ' || ev.key === 'Enter') {
-      ev.preventDefault();
-      magneticFieldButton.click();
-    }
-  });
-}
-
-  // magnetic strength input
-  magneticFieldStrengthInput?.addEventListener('input', () => {
-    magneticFieldStrengthInput.value = Math.round(magneticFieldStrengthInput.value * 10) / 10;
-    magneticFieldStrength = safeNum(magneticFieldStrengthInput.value, magneticFieldStrength);
-  });
-
   // ---------- Physics: magnetic force helper ----------
   function calculateMagneticForce(particle) {
     const velocityVector = [particle.velocity[0], particle.velocity[1]];
@@ -361,12 +225,202 @@ if (magneticFieldButton) {
     return [forceX, forceY];
   }
 
-  // ---------- Animation loop (consolidated & safe) ----------
+  // ---------- UI wiring (add-particle) ----------
+  document.getElementById('add-particle')?.addEventListener('click', () => {
+    if (radiusInput) radiusInput.value = '';
+    radiusInput?.classList.remove('correct', 'incorrect');
+  if (radiusFeedback) radiusFeedback.textContent = '';
+
+    const preset = document.getElementById('preset-select')?.value || 'none';
+    if (preset === 'photon') {
+      createPhoton();
+      const energyInputEl = document.getElementById('energy');
+      photons[photons.length - 1].energy = safeNum(energyInputEl?.value, particlePresets.photon.energy);
+      return;
+    }
+
+    if (preset === 'none') {
+      const charge = safeNum(document.getElementById('charge')?.value, 1);
+      const mass = safeNum(document.getElementById('mass')?.value, 1);
+      const energy = safeNum(document.getElementById('energy')?.value, 0.5);
+      const cfg = particlePresets.none;
+      particles.push(new Particle(SPAWN_X, SPAWN_Y, charge, mass, cfg.velocityPreset, energy, cfg.energyLossRate, cfg.magneticScaleFactor));
+      lastParticleInitialValues = { charge, mass, energy };
+      return;
+    }
+
+    const cfg = particlePresets[preset];
+    const energyVal = safeNum(document.getElementById('energy')?.value, cfg.energy);
+    let spawnX = SPAWN_X;
+if (preset === 'electron' || preset === 'positron') {
+  spawnX = SPAWN_X + PRESET_E_PAIR_OFFSET_X;
+}
+    particles.push(new Particle(spawnX, SPAWN_Y, cfg.charge, cfg.mass, Math.abs(cfg.velocityPreset), energyVal, cfg.energyLossRate, cfg.magneticScaleFactor));
+    // Note: when spawning from preset we will use the current energy input (so user can edit energy)
+    lastParticleInitialValues = { charge: cfg.charge, mass: cfg.mass, energy: energyVal };
+  });
+
+  // ---------- Single tidy preset handler ----------
+  presetSelect?.addEventListener('change', () => {
+    const presetKey = presetSelect.value || 'none';
+
+    // Update input boxes (mass/charge from preset; energy from preset but editable)
+    updateInputFieldsFromPreset(presetKey);
+
+    // Lock mass & charge except for 'none'; energy always editable
+    const isCustom = presetKey === 'none';
+    const chargeEl = document.getElementById('charge');
+    const massEl = document.getElementById('mass');
+    const energyEl = document.getElementById('energy');
+
+    if (chargeEl) { chargeEl.disabled = !isCustom; chargeEl.style.color = isCustom ? 'black' : 'grey'; }
+    if (massEl)   { massEl.disabled   = !isCustom; massEl.style.color   = isCustom ? 'black' : 'grey'; }
+    if (energyEl) { energyEl.disabled = false;   energyEl.style.color = 'black'; }
+
+    // Photon hint UI
+    if (presetKey === 'photon') document.getElementById('hint-box')?.classList.remove('hidden');
+    else document.getElementById('hint-box')?.classList.add('hidden');
+  });
+
+  // ---------- updateInputFieldsFromPreset used by the single handler ----------
+  function updateInputFieldsFromPreset(presetKey) {
+    const preset = particlePresets[presetKey];
+    if (!preset) return;
+
+    const chargeEl = document.getElementById('charge');
+    const massEl = document.getElementById('mass');
+    const energyEl = document.getElementById('energy');
+
+    if (!chargeEl || !massEl || !energyEl) return;
+
+    // Set input values (mass & charge reflect preset; energy set but remains editable)
+    chargeEl.value = preset.charge;
+    massEl.value = preset.mass;
+    energyEl.value = preset.energy;
+
+    // Update lastParticleInitialValues: mass & charge from preset, energy from input
+    lastParticleInitialValues = { charge: Number(chargeEl.value), mass: Number(massEl.value), energy: Number(energyEl.value) };
+
+    // Recalculate radius immediately if magnetic field is on
+    if (magneticField && radiusInput) {
+      const r = calculateRadius();
+     
+    }
+  }
+
+  // ---------- Input listeners so edits update lastParticleInitialValues (energy always editable) ----------
+  const energyEl = document.getElementById('energy');
+  energyEl?.addEventListener('input', () => {
+    const v = Number(energyEl.value);
+    lastParticleInitialValues = Object.assign({}, lastParticleInitialValues || {}, { energy: Number.isFinite(v) ? v : 0 });
+    if (magneticField && radiusInput) {
+      const r = calculateRadius();
+      
+    }
+  });
+
+  // mass & charge listeners update lastParticleInitialValues only when inputs are enabled (i.e. preset 'none')
+  const massEl = document.getElementById('mass');
+  const chargeEl = document.getElementById('charge');
+  massEl?.addEventListener('input', () => {
+    if (!massEl.disabled) {
+      const v = Number(massEl.value);
+      lastParticleInitialValues = Object.assign({}, lastParticleInitialValues || {}, { mass: Number.isFinite(v) ? v : 0 });
+      if (magneticField && radiusInput) {
+        const r = calculateRadius();
+        
+      }
+    }
+  });
+  chargeEl?.addEventListener('input', () => {
+    if (!chargeEl.disabled) {
+      const v = Number(chargeEl.value);
+      lastParticleInitialValues = Object.assign({}, lastParticleInitialValues || {}, { charge: Number.isFinite(v) ? v : 0 });
+      if (magneticField && radiusInput) {
+        const r = calculateRadius();
+        
+      }
+    }
+  });
+
+  // ---------- Clear button ----------
+  document.getElementById('clear-button')?.addEventListener('click', () => {
+    particles = []; trail = []; photons = [];
+    radiusInput?.classList.remove('correct', 'incorrect');
+    if (radiusFeedback) radiusFeedback.textContent = '';
+    lastParticleInitialValues = null;
+    if (radiusInput) radiusInput.value = '';
+  });
+
+  // ---------- Magnetic toggle visual (keeps original side-effects intact) ----------
+  if (magneticFieldButton && !magneticFieldButton.querySelector('.toggle-track')) {
+    const currentText = magneticFieldButton.textContent || 'Magnetic Field';
+    magneticFieldButton.textContent = '';
+    const label = document.createElement('span');
+    label.className = 'toggle-label';
+    label.textContent = currentText;
+    const track = document.createElement('span');
+    track.className = 'toggle-track';
+    const thumb = document.createElement('span');
+    thumb.className = 'toggle-thumb';
+    thumb.setAttribute('aria-hidden', 'true');
+    track.appendChild(thumb);
+    magneticFieldButton.appendChild(label);
+    magneticFieldButton.appendChild(track);
+    magneticFieldButton.setAttribute('aria-pressed', 'false');
+    magneticFieldButton.setAttribute('type', 'button');
+  }
+
+  function updateMagneticToggleVisual(isOn) {
+    if (!magneticFieldButton) return;
+    if (isOn) {
+      magneticFieldButton.classList.add('on');
+      magneticFieldButton.setAttribute('aria-pressed', 'true');
+      magneticFieldButton.querySelector('.toggle-label').textContent = 'Magnetic Field On';
+      // ensure label color visible
+      magneticFieldButton.querySelector('.toggle-label').style.color = '#2c3e50';
+    } else {
+      magneticFieldButton.classList.remove('on');
+      magneticFieldButton.setAttribute('aria-pressed', 'false');
+      magneticFieldButton.querySelector('.toggle-label').textContent = 'Magnetic Field Off';
+      magneticFieldButton.querySelector('.toggle-label').style.color = '';
+    }
+  }
+
+  if (magneticFieldButton) {
+    updateMagneticToggleVisual(!!magneticField);
+    magneticFieldButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      magneticField = !magneticField;
+      updateMagneticToggleVisual(magneticField);
+
+      // keep previous side-effects
+      if (magneticField) {
+        document.getElementById('show-radius-button')?.classList.remove('hidden');
+      } else {
+        document.getElementById('show-radius-button')?.classList.add('hidden');
+        document.getElementById('radius-hint-box')?.classList.add('hidden');
+      }
+    });
+
+    magneticFieldButton.addEventListener('keydown', (ev) => {
+      if (ev.key === ' ' || ev.key === 'Enter') {
+        ev.preventDefault();
+        magneticFieldButton.click();
+      }
+    });
+  }
+
+  // ---------- Magnetic strength input ----------
+  magneticFieldStrengthInput?.addEventListener('input', () => {
+    magneticFieldStrengthInput.value = Math.round(magneticFieldStrengthInput.value * 10) / 10;
+    magneticFieldStrength = safeNum(magneticFieldStrengthInput.value, magneticFieldStrength);
+  });
+
+  // ---------- Animation loop ----------
   function animate() {
-    // clear logical drawing space LOGICAL_W x LOGICAL_H (ctx transform maps this to bitmap)
     ctx.clearRect(0, 0, LOGICAL_W, LOGICAL_H);
 
-    // update/draw particles with robust removal/fade
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
 
@@ -374,7 +428,6 @@ if (magneticFieldButton) {
 
       p.update();
 
-      // invalid/out-of-bounds removal (use logical LOGICAL_W x LOGICAL_H)
       const invalid = (!isFinite(p.x) || !isFinite(p.y));
       const outside = (p.x < 0 || p.x > LOGICAL_W || p.y < 0 || p.y > LOGICAL_H);
       if (invalid || outside) {
@@ -383,7 +436,6 @@ if (magneticFieldButton) {
         continue;
       }
 
-      // dead handling & fade-out
       if (p._dead) {
         if (p._fade && p._fade > 0) {
           ctx.save();
@@ -403,12 +455,10 @@ if (magneticFieldButton) {
         }
       }
 
-      // normal draw + trail
       p.draw();
       if (p.energy > 0) trail.push([p.x, p.y]);
     }
 
-    // photon logic (pair production)
     for (let i = 0; i < photons.length; i++) {
       const photon = photons[i];
       drawPhoton(photon.x, photon.y, photon.energy);
@@ -429,7 +479,6 @@ if (magneticFieldButton) {
       }
     }
 
-    // trail rendering (bounded)
     while (trail.length > 500) trail.shift();
     for (let t = 0; t < trail.length; t++) {
       ctx.beginPath();
@@ -443,7 +492,7 @@ if (magneticFieldButton) {
 
   animate();
 
-  // ---------- Radius check UI logic (uses calculateRadius) ----------
+  // ---------- Radius calc & check UI ----------
   function calculateRadius() {
     if (magneticField && lastParticleInitialValues) {
       const eVal = Number(lastParticleInitialValues.energy);
@@ -463,7 +512,6 @@ if (magneticFieldButton) {
     return 0;
   }
 
-  // radius check UI wiring
   const REL_TOL = 0.05;
   const ABS_TOL = 0.01;
 
