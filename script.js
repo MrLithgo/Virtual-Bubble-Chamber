@@ -1,9 +1,3 @@
-/* Final consolidated script.js (patched to use explicit logical coords)
-   - logical drawing space constants (LOGICAL_W x LOGICAL_H)
-   - spawns, bounds, photon checks updated to use LOGICAL_* constants
-   - DPR-aware resize mapping uses LOGICAL_* values
-   - Otherwise behavior preserved
-*/
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -244,19 +238,85 @@ function resizeCanvasToFit() {
     lastParticleInitialValues = null;
   });
 
-  // magnetic toggle
-  magneticFieldButton?.addEventListener('click', () => {
+ // Ensure we have a reference
+
+
+// If the HTML doesn't include the inner .toggle-track/.toggle-thumb, create them
+if (magneticFieldButton && !magneticFieldButton.querySelector('.toggle-track')) {
+  // keep original text as label (wrap it)
+  const currentText = magneticFieldButton.textContent || 'Magnetic Field';
+  magneticFieldButton.textContent = ''; // clear
+  const label = document.createElement('span');
+  label.className = 'toggle-label';
+  label.textContent = currentText;
+  const track = document.createElement('span');
+  track.className = 'toggle-track';
+  const thumb = document.createElement('span');
+  thumb.className = 'toggle-thumb';
+  thumb.setAttribute('aria-hidden', 'true');
+  track.appendChild(thumb);
+  magneticFieldButton.appendChild(label);
+  magneticFieldButton.appendChild(track);
+  magneticFieldButton.setAttribute('aria-pressed', 'false');
+  magneticFieldButton.setAttribute('type','button');
+}
+
+// initialize appearance from current state
+function updateMagneticToggleVisual(isOn) {
+  if (!magneticFieldButton) return;
+  if (isOn) {
+    magneticFieldButton.classList.add('on');
+    magneticFieldButton.setAttribute('aria-pressed', 'true');
+    magneticFieldButton.querySelector('.toggle-label').textContent = 'Magnetic Field On';
+  } else {
+    magneticFieldButton.classList.remove('on');
+    magneticFieldButton.setAttribute('aria-pressed', 'false');
+    magneticFieldButton.querySelector('.toggle-label').textContent = 'Magnetic Field Off';
+  }
+}
+
+// wire click (preserves your magneticField variable toggle)
+if (magneticFieldButton) {
+  // set initial text/state
+  updateMagneticToggleVisual(!!magneticField);
+
+  magneticFieldButton.addEventListener('click', (e) => {
+    e.preventDefault();
+    // toggle logic (this is your app-level state)
     magneticField = !magneticField;
+
+    // visual update
+    updateMagneticToggleVisual(magneticField);
+
+    // existing side effects you may want to keep:
     if (magneticField) {
-      magneticFieldButton.textContent = 'Magnetic Field On';
-      magneticFieldButton.style.backgroundColor = 'green';
-      magneticFieldButton.style.color = 'white';
+      // e.g. show radius input or other UI changes
+      document.getElementById('show-radius-button')?.classList.remove('hidden');
     } else {
-      magneticFieldButton.textContent = 'Magnetic Field Off';
-      magneticFieldButton.style.backgroundColor = 'red';
-      magneticFieldButton.style.color = 'white';
+      document.getElementById('show-radius-button')?.classList.add('hidden');
+      // ensure the hint UI is hidden when off
+      document.getElementById('radius-hint-box')?.classList.add('hidden');
+    }
+
+    // optional: preserve the numeric color changes you had
+    if (magneticField) {
+      magneticFieldButton.style.color = '--navy';
+    } else {
+      magneticFieldButton.style.color = '';
+    }
+
+    // if you previously also changed the button text elsewhere, this visual handler already
+    // sets readable text via the label; remove other code that overwrote text to avoid conflicts.
+  });
+
+  // keyboard toggle with Space/Enter already handled by <button>, but we still add keydown for completeness
+  magneticFieldButton.addEventListener('keydown', (ev) => {
+    if (ev.key === ' ' || ev.key === 'Enter') {
+      ev.preventDefault();
+      magneticFieldButton.click();
     }
   });
+}
 
   // magnetic strength input
   magneticFieldStrengthInput?.addEventListener('input', () => {
