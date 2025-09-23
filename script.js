@@ -1,3 +1,9 @@
+/* Final consolidated script.js (patched to use explicit logical coords)
+   - logical drawing space constants (LOGICAL_W x LOGICAL_H)
+   - spawns, bounds, photon checks updated to use LOGICAL_* constants
+   - DPR-aware resize mapping uses LOGICAL_* values
+   - Otherwise behavior preserved
+*/
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -55,40 +61,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ===== Replace your resizeCanvasToFit() with this version =====
 function resizeCanvasToFit() {
-  // prefer the explicit wrapper if present
+  // prefer the explicit wrapper if present (your .canvas-wrap)
   const wrap = document.querySelector('.canvas-wrap');
-  // fallback to the container / body
   const container = wrap || document.querySelector('.simulation-area') || document.body;
 
-  // get the actual CSS size of the wrapper (this avoids using parent widths)
+  // Use the wrapper's *inner* size so borders/padding don't distort mapping
   const cssWidth = Math.max(1, Math.round((wrap ? wrap.clientWidth : container.clientWidth)));
   const cssHeight = Math.max(1, Math.round((wrap ? wrap.clientHeight : container.clientHeight)));
 
-  // ensure cssWidth/Height maintain the logical aspect if needed
-  // here we keep the wrapper-provided square size if using .canvas-wrap
-  canvas.style.width = cssWidth + 'px';
-  canvas.style.height = cssHeight + 'px';
+  // enforce logical aspect only when computing CSS dimensions:
+  // we keep the wrapper-provided square size if using .canvas-wrap; otherwise
+  // we compute height from logical aspect ratio to avoid accidental distortion.
+  // (If you always use .canvas-wrap as a square, this simply uses that square.)
+  let finalCssWidth = cssWidth;
+  let finalCssHeight = cssHeight;
+
+  // If the container is not square, preserve logical aspect (optional)
+  const desiredAspect = LOGICAL_W / LOGICAL_H;
+  if (!wrap) {
+    // compute CSS height from width to preserve aspect
+    finalCssHeight = Math.round(finalCssWidth / desiredAspect);
+  }
+
+  // Apply CSS size (visual)
+  canvas.style.width = `${finalCssWidth}px`;
+  canvas.style.height = `${finalCssHeight}px`;
 
   // DPR-aware bitmap sizing
   const dpr = window.devicePixelRatio || 1;
-  const bitmapW = Math.round(cssWidth * dpr);
-  const bitmapH = Math.round(cssHeight * dpr);
+  const bitmapW = Math.max(1, Math.round(finalCssWidth * dpr));
+  const bitmapH = Math.max(1, Math.round(finalCssHeight * dpr));
 
-  // only update when changed (avoid clearing unnecessarily)
+  // Only update bitmap if changed (avoid needless clears)
   if (canvas.width !== bitmapW || canvas.height !== bitmapH) {
     canvas.width = bitmapW;
     canvas.height = bitmapH;
-
-    // Map logical drawing area (LOGICAL_W x LOGICAL_H) to the new bitmap.
-    // Make sure LOGICAL_W/LOGICAL_H are the values used across your code.
-    ctx.setTransform(bitmapW / LOGICAL_W, 0, 0, bitmapH / LOGICAL_H, 0, 0);
   }
 
-  // Keep the same scaleFactor definition (CSS pixels vs logical)
-  scaleFactor = cssWidth / LOGICAL_W;
+  // Compute uniform scale (bitmap pixels per logical unit) and center offsets
+  const scaleX = bitmapW / LOGICAL_W;
+  const scaleY = bitmapH / LOGICAL_H;
+  const scale = Math.min(scaleX, scaleY); // uniform to preserve circles
 
-  // --- DEBUG: uncomment if you need to inspect sizes in DevTools ---
-  // console.log('resize -> css', cssWidth, cssHeight, 'bitmap', canvas.width, canvas.height, 'dpr', dpr, 'scaleFactor', scaleFactor);
+  const offsetX = Math.round((bitmapW - LOGICAL_W * scale) / 2);
+  const offsetY = Math.round((bitmapH - LOGICAL_H * scale) / 2);
+
+  // Map logical coordinates (LOGICAL_W x LOGICAL_H) to bitmap with uniform scale + centering
+  ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
+
+  // Update the drawing scaleFactor used by drawing code (CSS px per logical unit)
+  // scale is bitmap px / logical unit; divide by dpr to get CSS px / logical unit
+  window.scaleFactor = scale / dpr;
 }
 
   // wire resize
