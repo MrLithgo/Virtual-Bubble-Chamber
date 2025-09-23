@@ -1,4 +1,9 @@
-
+/* Final consolidated script.js (patched to use explicit logical coords)
+   - logical drawing space constants (LOGICAL_W x LOGICAL_H)
+   - spawns, bounds, photon checks updated to use LOGICAL_* constants
+   - DPR-aware resize mapping uses LOGICAL_* values
+   - Otherwise behavior preserved
+*/
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -18,13 +23,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const massInput = document.getElementById('mass');
 
+  // ---------- Logical drawing area ----------
+  // Use a fixed logical coordinate system for the simulation (independent of CSS size)
+  const LOGICAL_W = 800;
+  const LOGICAL_H = 600;
+
+  // spawn coordinates (keeps the same feel as your original spawn at x=80, y=300)
+  const SPAWN_X = LOGICAL_W * 0.1; // 80
+  const SPAWN_Y = LOGICAL_H * 0.5; // 300
+
   // ---------- State ----------
   let particles = [];
   let trail = [];
   let photons = [];
   let magneticField = false;
   let magneticFieldStrength = parseFloat(magneticFieldStrengthInput?.value || '0.5') || 0.5;
-  let scaleFactor = 1; // computed from CSS width / 800
+  let scaleFactor = 1; // computed from CSS width / LOGICAL_W
 
   // ---------- Presets ----------
   const particlePresets = {
@@ -43,38 +57,45 @@ document.addEventListener('DOMContentLoaded', () => {
   const LAYOUT_BREAKPOINT_PX = 980;
   const CANVAS_MAX_W = 900;
   const CANVAS_MIN_W = 300;
-  const ASPECT = 4 / 3;
+  const ASPECT = LOGICAL_W / LOGICAL_H; // keep logical aspect
 
-  function resizeCanvasToFit() {
-    const container = document.querySelector('.canvas-wrap') || document.querySelector('.simulation-area') || document.body;
-    const containerRect = container.getBoundingClientRect();
+  // ===== Replace your resizeCanvasToFit() with this version =====
+function resizeCanvasToFit() {
+  // prefer the explicit wrapper if present
+  const wrap = document.querySelector('.canvas-wrap');
+  // fallback to the container / body
+  const container = wrap || document.querySelector('.simulation-area') || document.body;
 
-    const stacked = window.innerWidth <= LAYOUT_BREAKPOINT_PX;
-    let availableWidth = containerRect.width;
-    // (we keep it simple: use container width which reflects layout)
-    availableWidth = Math.max(0, availableWidth);
+  // get the actual CSS size of the wrapper (this avoids using parent widths)
+  const cssWidth = Math.max(1, Math.round((wrap ? wrap.clientWidth : container.clientWidth)));
+  const cssHeight = Math.max(1, Math.round((wrap ? wrap.clientHeight : container.clientHeight)));
 
-    const gutter = 20;
-    let cssWidth = Math.min(CANVAS_MAX_W, Math.max(CANVAS_MIN_W, Math.floor(availableWidth - gutter)));
-    const cssHeight = Math.round(cssWidth / ASPECT);
+  // ensure cssWidth/Height maintain the logical aspect if needed
+  // here we keep the wrapper-provided square size if using .canvas-wrap
+  canvas.style.width = cssWidth + 'px';
+  canvas.style.height = cssHeight + 'px';
 
-    canvas.style.width = `${cssWidth}px`;
-    canvas.style.height = `${cssHeight}px`;
+  // DPR-aware bitmap sizing
+  const dpr = window.devicePixelRatio || 1;
+  const bitmapW = Math.round(cssWidth * dpr);
+  const bitmapH = Math.round(cssHeight * dpr);
 
-    const dpr = window.devicePixelRatio || 1;
-    const bitmapW = Math.round(cssWidth * dpr);
-    const bitmapH = Math.round(cssHeight * dpr);
+  // only update when changed (avoid clearing unnecessarily)
+  if (canvas.width !== bitmapW || canvas.height !== bitmapH) {
+    canvas.width = bitmapW;
+    canvas.height = bitmapH;
 
-    if (canvas.width !== bitmapW || canvas.height !== bitmapH) {
-      canvas.width = bitmapW;
-      canvas.height = bitmapH;
-      // Map logical 800x600 to bitmap
-      ctx.setTransform(bitmapW / 800, 0, 0, bitmapH / 600, 0, 0);
-    }
-
-    // logical scale for drawing circle radii etc.
-    scaleFactor = cssWidth / 800;
+    // Map logical drawing area (LOGICAL_W x LOGICAL_H) to the new bitmap.
+    // Make sure LOGICAL_W/LOGICAL_H are the values used across your code.
+    ctx.setTransform(bitmapW / LOGICAL_W, 0, 0, bitmapH / LOGICAL_H, 0, 0);
   }
+
+  // Keep the same scaleFactor definition (CSS pixels vs logical)
+  scaleFactor = cssWidth / LOGICAL_W;
+
+  // --- DEBUG: uncomment if you need to inspect sizes in DevTools ---
+  // console.log('resize -> css', cssWidth, cssHeight, 'bitmap', canvas.width, canvas.height, 'dpr', dpr, 'scaleFactor', scaleFactor);
+}
 
   // wire resize
   window.removeEventListener('resize', window._bubbleResizeHandler);
@@ -90,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ---------- Particle class with Part 2 update() ----------
   class Particle {
-    constructor(x = 80, y = 300, charge = 1, mass = 1, velocityPreset = 40, energy = 0.5, energyLossRate = 0.002, magneticScaleFactor = 1) {
+    constructor(x = SPAWN_X, y = SPAWN_Y, charge = 1, mass = 1, velocityPreset = 40, energy = 0.5, energyLossRate = 0.002, magneticScaleFactor = 1) {
       this.x = x;
       this.y = y;
       this.charge = charge;
@@ -143,22 +164,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     draw() {
+      // draw in logical coords; radius scaled by scaleFactor so it looks similar across sizes
       ctx.beginPath();
       ctx.arc(this.x, this.y, 2 * Math.max(scaleFactor, 1), 0, Math.PI * 2);
       ctx.fillStyle = 'black';
       ctx.fill();
     }
   }
-function updateInputFields(preset) {
-  const chargeInput = document.getElementById('charge');
-  const massInputEl = document.getElementById('mass');
-  const energyInput = document.getElementById('energy');
-  if (particlePresets[preset]) {
-    energyInput.value = particlePresets[preset].energy;
-    chargeInput.value = particlePresets[preset].charge;
-    massInputEl.value = particlePresets[preset].mass;
-  }
-}
 
   // ---------- Photon helpers ----------
   function drawPhoton(x, y, energy) {
@@ -172,7 +184,7 @@ function updateInputFields(preset) {
     ctx.stroke();
   }
   function createPhoton() {
-    photons.push({ x: 0, y: 300, energy: particlePresets.photon.energy });
+    photons.push({ x: 0, y: SPAWN_Y, energy: particlePresets.photon.energy });
   }
 
   // ---------- UI wiring (add-particle, preset select) ----------
@@ -190,52 +202,46 @@ function updateInputFields(preset) {
       const mass = safeNum(document.getElementById('mass')?.value, 1);
       const energy = safeNum(document.getElementById('energy')?.value, 0.5);
       const cfg = particlePresets.none;
-      particles.push(new Particle(80, 300, charge, mass, cfg.velocityPreset, energy, cfg.energyLossRate, cfg.magneticScaleFactor));
+      particles.push(new Particle(SPAWN_X, SPAWN_Y, charge, mass, cfg.velocityPreset, energy, cfg.energyLossRate, cfg.magneticScaleFactor));
       lastParticleInitialValues = { mass, energy, charge };
       return;
     }
 
     const cfg = particlePresets[preset];
     const energyVal = safeNum(document.getElementById('energy')?.value, cfg.energy);
-    particles.push(new Particle(80, 300, cfg.charge, cfg.mass, Math.abs(cfg.velocityPreset), energyVal, cfg.energyLossRate, cfg.magneticScaleFactor));
+    particles.push(new Particle(SPAWN_X, SPAWN_Y, cfg.charge, cfg.mass, Math.abs(cfg.velocityPreset), energyVal, cfg.energyLossRate, cfg.magneticScaleFactor));
     lastParticleInitialValues = { mass: cfg.mass, energy: cfg.energy, charge: cfg.charge };
   });
 
   // preset select behaviour (photon hint)
-  // Preset select behaviour
-presetSelect?.addEventListener('change', () => {
-  const preset = presetSelect.value;
+  presetSelect?.addEventListener('change', () => {
+    const preset = presetSelect.value;
+    if (preset === 'photon') document.getElementById('hint-box')?.classList.remove('hidden');
+    else document.getElementById('hint-box')?.classList.add('hidden');
 
-  // Update input boxes when a preset is chosen
-  updateInputFields(preset);
-
-  // Photon hint (optional)
-  if (preset === 'photon') document.getElementById('hint-box')?.classList.remove('hidden');
-  else document.getElementById('hint-box')?.classList.add('hidden');
-
-  // Disable charge/mass inputs if not 'none'
-  if (preset !== 'none') {
-    document.getElementById('charge').disabled = true;
-    document.getElementById('mass').disabled = true;
-    document.getElementById('charge').style.color = 'grey';
-    document.getElementById('mass').style.color = 'grey';
-  } else {
-    document.getElementById('charge').disabled = false;
-    document.getElementById('mass').disabled = false;
-    document.getElementById('charge').style.color = 'black';
-    document.getElementById('mass').style.color = 'black';
-  }
-});
-
-// Initialize input boxes to match starting preset
-updateInputFields(presetSelect?.value || 'none');
-
+    // also update input boxes to show preset values (simple re-addition)
+    const chargeEl = document.getElementById('charge');
+    const massEl = document.getElementById('mass');
+    const energyEl = document.getElementById('energy');
+    if (particlePresets[preset] && chargeEl && massEl && energyEl) {
+      chargeEl.value = particlePresets[preset].charge;
+      massEl.value = particlePresets[preset].mass;
+      energyEl.value = particlePresets[preset].energy;
+      const isCustom = preset === 'none';
+      chargeEl.disabled = !isCustom;
+      massEl.disabled = !isCustom;
+      chargeEl.style.color = isCustom ? 'black' : 'grey';
+      massEl.style.color = isCustom ? 'black' : 'grey';
+    }
+  });
 
   // clear button
   document.getElementById('clear-button')?.addEventListener('click', () => {
     particles = []; trail = []; photons = [];
     radiusInput?.classList.remove('correct', 'incorrect');
     if (radiusFeedback) radiusFeedback.textContent = '';
+    // clear spawn state as well
+    lastParticleInitialValues = null;
   });
 
   // magnetic toggle
@@ -274,8 +280,8 @@ updateInputFields(presetSelect?.value || 'none');
 
   // ---------- Animation loop (consolidated & safe) ----------
   function animate() {
-    // clear logical drawing space 800x600 (ctx transform maps this to bitmap)
-    ctx.clearRect(0, 0, 800, 600);
+    // clear logical drawing space LOGICAL_W x LOGICAL_H (ctx transform maps this to bitmap)
+    ctx.clearRect(0, 0, LOGICAL_W, LOGICAL_H);
 
     // update/draw particles with robust removal/fade
     for (let i = 0; i < particles.length; i++) {
@@ -285,9 +291,9 @@ updateInputFields(presetSelect?.value || 'none');
 
       p.update();
 
-      // invalid/out-of-bounds removal (use logical 800x600)
+      // invalid/out-of-bounds removal (use logical LOGICAL_W x LOGICAL_H)
       const invalid = (!isFinite(p.x) || !isFinite(p.y));
-      const outside = (p.x < 0 || p.x > 800 || p.y < 0 || p.y > 600);
+      const outside = (p.x < 0 || p.x > LOGICAL_W || p.y < 0 || p.y > LOGICAL_H);
       if (invalid || outside) {
         particles.splice(i, 1);
         i--;
@@ -324,10 +330,10 @@ updateInputFields(presetSelect?.value || 'none');
       const photon = photons[i];
       drawPhoton(photon.x, photon.y, photon.energy);
       photon.x += 5;
-      if (photon.x > 800) {
+      if (photon.x > LOGICAL_W) {
         photons.splice(i, 1); i--; continue;
       }
-      if (photon.energy > 1.022 * particlePresets.electron.energy && photon.x > 800 / 3) {
+      if (photon.energy > 1.022 * particlePresets.electron.energy && photon.x > LOGICAL_W / 3) {
         const electron = new Particle(photon.x, photon.y, -1, particlePresets.electron.mass, 0.03, 1, particlePresets.electron.energyLossRate, particlePresets.electron.magneticScaleFactor);
         const positron = new Particle(photon.x, photon.y, 1, particlePresets.electron.mass, 0.03, 1, particlePresets.electron.energyLossRate, particlePresets.electron.magneticScaleFactor);
         const remainingEnergy = photon.energy - 1.022;
