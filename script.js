@@ -412,10 +412,14 @@ if (preset === 'electron' || preset === 'positron') {
   }
 
   // ---------- Magnetic strength input ----------
-  magneticFieldStrengthInput?.addEventListener('input', () => {
-    magneticFieldStrengthInput.value = Math.round(magneticFieldStrengthInput.value * 10) / 10;
-    magneticFieldStrength = safeNum(magneticFieldStrengthInput.value, magneticFieldStrength);
-  });
+  magneticFieldStrengthInput.addEventListener('input', () => {
+  const n = parseFloat(magneticFieldStrengthInput.value);
+  if (!Number.isNaN(n)) {
+    // update internal state but DO NOT overwrite the visible input
+    magneticFieldStrength = n;
+  }
+  // if the field is empty or temporarily invalid (e.g. user typed "0.") do nothing
+});
 
   // ---------- Animation loop ----------
   function animate() {
